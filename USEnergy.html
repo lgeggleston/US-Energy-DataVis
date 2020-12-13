@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<script type="text/javascript" src="d3.js"></script> 
+		<style> 
+			.grid .tick {
+    			stroke: lightgrey;
+    			opacity: 0.3;
+			} 
+			.grid path {
+				stroke-width: 0;
+			}
+			.axis { font: 15px "Gill Sans", sans-serif; }
+		</style>
+	</head>
+<body> 
+	<script type="text/javascript">
+
+		var w = 1000;
+		var h = 900;
+		var margin = 50;
+		var graph3_center = [w*3/4-margin, h*3/4]
+
+		var rowConvert = function(dat) {
+			var parseTime = d3.timeParse("%Y %B");
+			return {
+					date: parseTime(dat.yearmonth),
+					coal: parseFloat(dat.coal_production),
+					oil: parseFloat(dat.oil_production),
+					gas: parseFloat(dat.gas_production),
+					total_ff: parseFloat(dat.FF_production),
+					nuclear: parseFloat(dat.nuclear_production),
+					hydro: parseFloat(dat.hydro_production),
+					geo: parseFloat(dat.geothermal_production),
+					solar: parseFloat(dat.solar_production),
+					wind: parseFloat(dat.wind_production),
+					biomass: parseFloat(dat.biomass_production),
+					total_ren: parseFloat(dat.renewable_production),
+					tot_production: parseFloat(dat.totalprimary_production),
+					ff_consumption: parseFloat(dat.ff_consumption),
+					nuc_consumption: parseFloat(dat.nuclear_consumption),
+					ren_consumption: parseFloat(dat.renewable_consumption),
+					tot_consumption: parseFloat(dat.totalprimary_consumption),
+					imports: parseFloat(dat.primary_imports),
+					exports: parseFloat(dat.primary_exports)
+				};
+		}
+
+		var dataset;
+		d3.csv("Energydata.csv", rowConvert, function(dat) {
+			dataset = dat;
+			make_visualization(dataset);
+		})
+
+		var make_visualization = function(dat) {
+
+			var svg = d3.select("body").append("svg").attr("width", w+margin+150).attr("height", h+margin);
+
+			// scales graph 1 - lineplot
+			var xScale1 = d3.scaleTime()
+				.domain([new Date("2000-01-01"), new Date("2019-09-01")])
+				.range([margin*2,w-margin]);
+
+			var yScale1 = d3.scaleLinear()
+				.domain([0, 4])	// highest value is total ff production at 7 quad BTU; if totals are not included adjust
+				.range([400+margin, margin*2]);
+
+
+			// axes for graph 1
+			svg.append("g")         
+    			.attr("class", "grid")
+    			.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+    			.call(d3.axisLeft()
+    				.scale(yScale1)
+    				.ticks(4)
+        			.tickSize(-w+(margin*3), 0, 0)
+        			.tickFormat(""));
+            svg.append("g")
+				.attr("class", "axis")
+				.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+				.call(d3.axisLeft()
+					.scale(yScale1)
+					.ticks(4));
+			svg.append("g")
+				.attr("class", "axis")
+				.attr("transform", "translate(" + 0 + "," + (400+margin) + ")")
+				.call(d3.axisBottom()
+					.scale(xScale1));
+
+
+			sources = [["coal", "Coal"],["oil", "Crude Oil"],["gas", "Natural Gas"], ["nuclear", "Nuclear"], ["hydro", "Hydropower"],["biomass", "Biomass"]];
+			colors = ["black","red","orange","yellow","blue","purple", "green"];
+
+			//Loop through the source variables to plot
+			for (i=0;i<sources.length;i++) {
+				var s = sources[i][0];
+
+				var line = d3.line()
+					.x(function(d) {return xScale1(d.date);})
+					.y(function(d) {return yScale1(d[s]);})
+
+				svg.append("path")
+					.datum(dat)
+					.attr("fill", "none")
+					.attr("class", "line")
+					.attr("d", line)
+					.attr("stroke-width", 1.5)
+					.attr("stroke", colors[i]);
+
+			};
+
+			// renewable totals
+			var line = d3.line()
+				.x(function(d) {return xScale1(d.date);})
+				.y(function(d) {return yScale1(d.geo+d.wind+d.solar);})
+
+			svg.append("path")
+				.datum(dat)
+				.attr("fill", "none")
+				.attr("class", "line")
+				.attr("d", line)
+				.attr("stroke-width", 1.5)
+				.attr("stroke", "green");
+
+			svg.append("text")
+				.attr("x", margin)
+				.attr("y", yScale1(2))
+				.attr("transform", "rotate(-90,"+margin+"," + (yScale1(2)) + ")")
+				.text("Monthly Production (Quadrillion BTU)")
+				.attr("font-size", "18px")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+
+			svg.append("text")
+				.attr("x", w/2+margin)
+				.attr("y", margin)
+				.text("US Primary Energy in the 21st Century")
+				.attr("font-size", "40px")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+
+			// legend for line plot
+			legendgroup = svg.append("g").attr("id", "legendgroup");
+			var positions = [new Date(2001,0,1),new Date(2003,0,1),new Date(2006,0,1),new Date(2009,0,1),new Date(2011,0,1),new Date(2014,0,1),new Date(2016,0,1)]
+			for (i=0;i<sources.length;i++) {
+				legendgroup.append("rect")
+					.attr("x", xScale1(positions[i]))
+					.attr("y", 400 + 2*margin)
+					.attr("width", 20)
+					.attr("height", 4)
+					.attr("fill", colors[i]);
+
+				svg.append("text")
+					.attr("x", xScale1(positions[i])+25)
+					.attr("y", 400+ 2*margin+8)
+					.text(sources[i][1])
+					.attr("font-size", "16px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+			}
+			legendgroup.append("rect")
+					.attr("x", xScale1(positions[6]))
+					.attr("y", 400 + 2*margin)
+					.attr("width", 20)
+					.attr("height", 4)
+					.attr("fill", "green");
+			svg.append("text")
+					.attr("x", xScale1(positions[6])+25)
+					.attr("y", 400+ 2*margin+8)
+					.text("Other Renewables")
+					.attr("font-size", "16px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+
+			year_sections = [];
+			for (i=2000;i<2019;i++) {
+				year_sections.push([new Date(i,0,1), new Date(i,11,31)]);
+			}
+			year_sections.push([new Date(2019,0,1), new Date(2019,8,1)]);	// 2019
+
+			// selection of years
+			bars = svg.append("g").attr("id", "bars");
+			bars.selectAll("rect")  
+   				.data(year_sections)
+   				.enter()
+   				.append("rect")
+   				.attr("width", function(d) {
+   					return xScale1(d[1]) - xScale1(d[0]);
+   				})
+   				.attr("height", 400-margin)
+   				.attr("x", function(d) {
+   					return xScale1(d[0]);
+   				})
+   				.attr("y", margin*2)
+   				.attr("stroke-width", 0)
+   				.attr("fill", "lightgrey")
+   				.attr("opacity", 0)
+   				.on("mouseover", function(d) {
+   					d3.select(this)
+   						.attr("opacity", "0.4");
+
+   					var totals = [0,0,0,0];
+   					var count = 0;
+   					var averages = [0,0,0,0];
+   					for (i = 0; i < dat.length; i++) {
+						if (dat[i].date.getFullYear() == d[0].getFullYear()) {
+							count++;
+							totals[0] = totals[0] + dat[i].total_ff;
+							totals[1] = totals[1] + dat[i].total_ren;
+							totals[2] = totals[2] + dat[i].nuclear;
+							totals[3] = totals[3] + dat[i].tot_production;
+						}
+					}
+					for (i=0;i<4;i++) {
+						averages[i] = Math.round(totals[i]*100/count)/100;
+					}
+
+   					var xpos = parseFloat(d3.select(this).attr("x")) + 60;
+					var ypos = margin*2+10;
+   					svg.append("rect")
+					    .attr("id", "tooltip-box")
+					    .attr("x", xpos)
+					    .attr("y", ypos)
+					    .attr("width", 200)
+					    .attr("height", 130)
+					    .attr("fill", "white")
+					    .attr("rx", 10)
+					    .attr("ry", 10)
+					    .attr("stroke", "black")
+					    .attr("opacity", 0.5);
+
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+20)
+					    .attr("font-size", "14px")
+					    .attr("font-weight", "bold")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("Avg. Monthly Production");
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+40)
+					    .attr("font-size", "12px")
+					    .attr("font-weight", "bold")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("(Quadrillion BTU)");
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+60)
+					    .attr("font-size", "14px")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("Fossil Fuels: "+averages[0]);
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+80)
+					    .attr("font-size", "14px")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("Renewables: " +averages[1]);
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+100)
+					    .attr("font-size", "14px")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("Nuclear: " +averages[2]);
+					svg.append("text")
+					    .attr("class", "tooltip")
+					    .attr("x", xpos+15)
+					    .attr("y", ypos+120)
+					    .attr("font-size", "14px")
+					    .attr("font-family", "Gill Sans", "sans-serif")
+					    .text("Total Primary: " +averages[3]);
+
+   				})
+   				.on("click", function(d) {
+   					d3.selectAll("rect").each( function() {
+   						if (d3.select(this).attr("fill") == "gold") {
+   							d3.select(this).attr("opacity", 0);
+   							d3.select(this).attr("fill", "lightgrey");
+   						}
+   					})
+   					d3.select(this)
+   						.attr("fill", "gold");
+
+   					// redraw facet graphs
+   					redraw_graph2(d[0].getFullYear());
+   					redraw_graph3(d[0].getFullYear());
+   				})
+   				.on("mouseout", function() {
+    				if (d3.select(this).attr("fill") == "lightgrey") {
+    					d3.select(this).attr("opacity", 0);
+    				}
+    				svg.selectAll("text.tooltip").remove();
+    				svg.select("#tooltip-box").remove();
+				});
+
+			// aggregate data for this year
+			pie_sources = ["coal","oil","gas","nuclear","renewable"];
+			pie_colors = ["black","crimson","darkorange","gold","lightgreen"];
+
+			agg_data_3 = [["coal", 0], ["oil", 0], ["gas", 0], ["nuclear", 0], ["renewable", 0]];
+			agg_data_2 = [["t_produce", 0], ["t_consume", 0], ["t_export", 0], ["t_import", 0]];
+			for (i = 0; i < dat.length; i++) {
+				if (dat[i].date.getFullYear() == 2019) {
+					// for donut
+					agg_data_3[0][1] = agg_data_3[0][1] + dat[i].coal;
+					agg_data_3[1][1] = agg_data_3[1][1] + dat[i].oil;
+					agg_data_3[2][1] = agg_data_3[2][1] + dat[i].gas;
+					agg_data_3[3][1] = agg_data_3[3][1] + dat[i].nuclear;
+					agg_data_3[4][1] = agg_data_3[4][1] + dat[i].hydro+dat[i].biomass+dat[i].solar+dat[i].wind+dat[i].geo;
+					// for bar graph
+					agg_data_2[0][1] = agg_data_2[0][1] + dat[i].tot_production;
+					agg_data_2[1][1] = agg_data_2[1][1] + dat[i].tot_consumption;
+					agg_data_2[2][1] = agg_data_2[2][1] + dat[i].exports;
+					agg_data_2[3][1] = agg_data_2[3][1] + dat[i].imports;
+				}
+			}
+			var sum_sources = 0;
+			for (i=0;i<5;i++) {
+				sum_sources = sum_sources + agg_data_3[i][1];
+			}
+
+   			// original graph 2 - 2019
+   			// scales for graph 2 - bar graph
+			var xScale2 = d3.scaleLinear()
+				.domain([0, 5])
+				.range([margin*2, w/2]);
+
+			//var max_value = d3.max([agg_data_2[0][1],agg_data_2[1][1],agg_data_2[2][1],agg_data_2[3][1]]);
+			var max_value = 105;
+			var yScale2 = d3.scaleLinear()
+				.domain([0, max_value])
+				.range([h-margin*2, 400+3*margin]);
+
+			// axes for graph 2
+			svg.append("g")         
+    			.attr("id", "grid2")
+    			.attr("class", "grid")
+    			.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+    			.call(d3.axisLeft()
+    				.scale(yScale2)
+        			.tickSize(margin*2-w/2, 0, 0)
+        			.ticks(6)
+        			.tickFormat(""));
+            svg.append("g")
+				.attr("class", "axis")
+				.attr("id", "yaxis2")
+				.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+				.call(d3.axisLeft()
+					.scale(yScale2)
+					.ticks(6));
+			svg.append("g")
+				.attr("class", "axis")
+				.attr("id", "xaxis2")
+				.attr("transform", "translate(" + 0 + "," + (h-margin*2) + ")")
+				.call(d3.axisBottom()
+					.ticks(6)
+					.scale(xScale2)
+					.tickFormat(""));
+			svg.append("text")
+				.attr("x", margin)
+				.attr("y", yScale2(50))
+				.attr("transform", "rotate(-90,"+margin+"," + (yScale2(50)) + ")")
+				.text("Quadrillion BTU")
+				.attr("font-size", "18px")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+			svg.append("text")
+				.attr("id", "yearlabel2")
+				.attr("x", xScale2(2.5))
+				.attr("y", 400+margin*3)
+				.text("Production and Consumption in 2019")
+				.attr("font-weight", "bold")
+				.attr("font-size", "18px")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+			svg.append("text")
+				.attr("id", "yearlabel3")
+				.attr("x", graph3_center[0])
+				.attr("y", h-margin)
+				.text("Total Yearly Production")
+				.attr("font-size", "25px")
+				.attr("font-weight", "bold")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+
+			var bar_fills = ["#FFFB7D", "#FE86E6", "#86BDFE", "#6CFFD0"];
+
+
+			var bargroup = d3.select("svg").append("g").attr("id","bargroup");
+			bargroup.selectAll("rect")
+				.data(agg_data_2)
+				.enter()
+				.append("rect")
+				.attr("x", function(d, i) {
+					return xScale2(i+1)-20;
+				})
+				.attr("y", function(d) {
+					return yScale2(d[1]);
+				})
+				.attr("width", 40)
+				.attr("height", function(d) {
+					return h-margin*2-yScale2(d[1]);
+				})
+				.attr("fill", function(d,i) {
+					return bar_fills[i];
+				});
+				
+
+			// labels
+			var labels = [["Total", "Production"], ["Total", "Consumption"], ["Total", "Exports"], ["Total", "Imports"]];
+			for (i=1;i<5;i++) {
+				svg.append("text")
+					.attr("class", "label")
+	        		.attr("x", xScale2(i))
+					.attr("y", yScale2(-10))
+					.text(labels[i-1][0])
+					.style("text-anchor", "middle")
+					.attr("font-size", "14px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+				svg.append("text")
+					.attr("class", "label")
+	        		.attr("x", xScale2(i))
+					.attr("y", yScale2(-17))
+					.text(labels[i-1][1])
+					.style("text-anchor", "middle")
+					.attr("font-size", "14px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+			}
+
+
+   			// original graph 3 - 2019
+   			var pie = d3.pie()
+        		.value(function(d) { return d[1]; })
+
+   			var arc = d3.arc()
+    			.innerRadius(70)
+    			.outerRadius(120)
+    			.padAngle(0.05);
+
+			var arcgroup = svg.append("g").attr("id","arcgroup").attr("transform", "translate("+graph3_center[0]+","+graph3_center[1]+")");
+
+			var arcs = arcgroup.selectAll(".arc")
+	            .data(pie(agg_data_3))
+	            .enter()
+	            .append("g")
+	            .attr("class", "arc");
+
+			arcs.append("path")
+	      		.attr("fill", function(d, i) {
+	      			return pie_colors[i];
+	      		})
+	      		.attr("d", arc);
+
+	      	arcs.append("text")
+			    .attr("x", function(d) {
+			    	return arc.centroid(d)[0];
+			    })
+			    .attr("y", function(d) {
+			    	return arc.centroid(d)[1];
+			    })
+			    .attr("text-anchor", "middle")
+			    .attr("font-family","Gill Sans","sans-serif")
+			    .attr("font-size", "18px")
+			    .attr("fill", "white")
+			    .text(function(d) {
+			    	return Math.round(d.data[1]*100/sum_sources)+"%";
+			    });
+
+			svg.append("text")
+					.attr("id", "yearlabel")
+	        		.attr("x", graph3_center[0])
+					.attr("y", graph3_center[1]+10)
+					.text("2019")
+					.style("text-anchor", "middle")
+					.attr("font-weight", "bold")
+					.attr("font-size", "40px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+
+			// legend for pie plot
+			pielegend = svg.append("g").attr("id", "pielegend");
+			pie_labels = ["Coal", "Crude Oil", "Natural Gas", "Nuclear", "Total Renewables"];
+			for (i=0;i<pie_sources.length;i++) {
+				pielegend.append("circle")
+					.attr("cy", 400+4*margin + i*40)
+					.attr("cx", graph3_center[0]+160)
+					.attr("r", 7)
+					.attr("fill", pie_colors[i]);
+				svg.append("text")
+					.attr("x", graph3_center[0]+175)
+					.attr("y", 400+4*margin + i*40 + 6)
+					.text(pie_labels[i])
+					.attr("font-size", "16px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+			}
+
+   			var redraw_graph2 = function(year) {
+   				agg_data_2 = [["t_produce", 0], ["t_consume", 0], ["t_export", 0], ["t_import", 0]];
+				for (i = 0; i < dat.length; i++) {
+					if (dat[i].date.getFullYear() == year) {
+						agg_data_2[0][1] = agg_data_2[0][1] + dat[i].tot_production;
+						agg_data_2[1][1] = agg_data_2[1][1] + dat[i].tot_consumption;
+						agg_data_2[2][1] = agg_data_2[2][1] + dat[i].exports;
+						agg_data_2[3][1] = agg_data_2[3][1] + dat[i].imports;
+					}
+				}
+				//var max_value = d3.max([agg_data_2[0][1],agg_data_2[1][1],agg_data_2[2][1],agg_data_2[3][1]]);
+				var yScale2 = d3.scaleLinear()
+					.domain([0, max_value])
+					.range([h-margin*2, 400+3*margin]);
+
+				// redraw axes 
+				svg.select("#grid2")
+					.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+	    			.call(d3.axisLeft()
+	    				.scale(yScale2)
+	        			.tickSize(margin*2-w/2, 0, 0)
+	        			.ticks(6)
+	        			.tickFormat(""));
+				svg.select("#yaxis2")
+					.attr("transform", "translate(" + margin*2 + "," + 0 + ")")
+					.call(d3.axisLeft()
+						.scale(yScale2)
+						.ticks(6));
+				svg.select("xaxis2")
+					.attr("transform", "translate(" + 0 + "," + (h-margin*2) + ")")
+						.call(d3.axisBottom()
+							.ticks(6)
+							.scale(xScale2)
+							.tickFormat(""));
+
+				bargroup.selectAll("rect")
+					.data(agg_data_2)
+					.transition()
+					.duration(0)
+					.attr("x", function(d, i) {
+						return xScale2(i+1)-20;
+					})
+					.attr("y", function(d) {
+						return yScale2(d[1]);
+					})
+					.attr("width", 40)
+					.attr("height", function(d) {
+						return h-margin*2-yScale2(d[1]);
+					})
+					.attr("fill", function(d,i) {
+						return bar_fills[i];
+					});
+
+				svg.select("#yearlabel2").remove();
+				svg.append("text")
+				.attr("id", "yearlabel2")
+				.attr("x", xScale2(2.5))
+				.attr("y", 400+margin*3)
+				.text("Production and Consumption in "+year)
+				.attr("font-weight", "bold")
+				.attr("font-size", "18px")
+				.style("text-anchor", "middle")
+				.attr("font-family", "Gill Sans", "sans-serif");
+
+
+			};
+
+			var redraw_graph3 = function(year) {
+
+				// aggregate data for this year
+				agg_data_3 = [["coal", 0], ["oil", 0], ["gas", 0], ["nuclear", 0], ["renewable", 0]];
+				for (i = 0; i < dat.length; i++) {
+					if (dat[i].date.getFullYear() == year) {
+						agg_data_3[0][1] = agg_data_3[0][1] + dat[i].coal;
+						agg_data_3[1][1] = agg_data_3[1][1] + dat[i].oil;
+						agg_data_3[2][1] = agg_data_3[2][1] + dat[i].gas;
+						agg_data_3[3][1] = agg_data_3[3][1] + dat[i].nuclear;
+						agg_data_3[4][1] = agg_data_3[4][1] + dat[i].hydro+dat[i].biomass+dat[i].solar+dat[i].wind+dat[i].geo;
+					}
+				}
+				var sum_sources = 0;
+				for (i=0;i<5;i++) {
+					sum_sources = sum_sources + agg_data_3[i][1];
+				}
+
+				// redraw arcs
+				d3.selectAll(".arc").remove();
+				var arcs = arcgroup.selectAll(".arc")
+		            .data(pie(agg_data_3))
+		            .enter()
+		            .append("g")
+		            .attr("class", "arc");
+
+				arcs.append("path")
+		      		.attr("fill", function(d, i) {
+		      			return pie_colors[i];
+		      		})
+		      		.attr("d", arc);
+
+		      	arcs.append("text")
+				    .attr("x", function(d) {
+				    	return arc.centroid(d)[0];
+				    })
+				    .attr("y", function(d) {
+				    	return arc.centroid(d)[1];
+				    })
+				    .attr("text-anchor", "middle")
+				    .attr("font-family","Gill Sans","sans-serif")
+				    .attr("font-size", "18px")
+				    .attr("fill", "white")
+				    .text(function(d) {
+				    	return Math.round(d.data[1]*100/sum_sources)+"%";
+				    });
+
+				svg.select("#yearlabel").remove();
+				svg.append("text")
+					.attr("id", "yearlabel")
+	        		.attr("x", graph3_center[0])
+					.attr("y", graph3_center[1]+10)
+					.text(year)
+					.style("text-anchor", "middle")
+					.attr("font-weight", "bold")
+					.attr("font-size", "40px")
+					.attr("font-family", "Gill Sans", "sans-serif");
+
+			};
+
+		};
+
+	</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
